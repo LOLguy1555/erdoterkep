@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Érintett erdőrészletek – interaktív térkép</title>
+<link href="https://unpkg.com/maplibre-gl@5.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+:root{font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;color:#17372e;font-synthesis:none}*{box-sizing:border-box}body{margin:0;background:#eef2ee}#map{position:absolute;inset:0}button,input,select{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #83b7a0;outline-offset:2px}
+aside{position:absolute;z-index:3;left:20px;top:20px;bottom:20px;width:365px;max-width:calc(100vw - 40px);overflow-y:auto;overscroll-behavior:contain;background:#ffffffed;backdrop-filter:blur(16px);border:1px solid #ffffffc7;box-shadow:0 20px 60px #18352a30,0 2px 10px #18352a12;border-radius:20px;padding:0 22px 22px;scrollbar-width:thin;scrollbar-color:#cbd9d0 transparent}
+.panel-header{position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#fffffff7 85%,#ffffffed);padding:23px 0 16px;border-bottom:1px solid #e8eee9;margin-bottom:15px}.eyebrow{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#56806c;font-weight:800;margin-bottom:8px}.panel-header h1{font-size:23px;letter-spacing:-.8px;line-height:1.15;margin:0 0 9px;color:#123a2d}.sub{font-size:12px;color:#64786e;line-height:1.55;margin:0}.version{font-size:10px;color:#9aaa9e;margin-top:8px}.stat{font-size:12px;color:#365d4b;background:#eaf4ed;border:1px solid #d8e9dd;border-radius:11px;padding:11px 13px;margin:0 0 17px;font-weight:700}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.85px;color:#587367;margin:23px 0 12px;padding-top:17px;border-top:1px solid #e8eee9}label{display:block;font-size:12px;font-weight:650;margin:13px 0 6px;color:#304b3f}input:not([type=checkbox]),select{width:100%;padding:11px 12px;border:1px solid #d5e1d8;border-radius:10px;background:#fff;font-size:13px;color:#233d31;min-height:42px}input::placeholder{color:#a2b1a8}select{appearance:auto}button{border:0;border-radius:10px;background:#17684c;color:#fff;padding:11px 13px;font-size:12px;font-weight:700;transition:background .15s,transform .15s}button:hover{background:#0d513b}button:active{transform:translateY(1px)}button.secondary{background:#eaf2ed;color:#235942}button.secondary:hover{background:#dbeae0}.buttons{display:flex;gap:9px;margin-top:17px}.buttons button{flex:1;min-height:43px}.layer{display:flex;align-items:center;gap:11px;margin:8px 0;padding:11px 12px;border:1px solid #e3ebe5;background:#fbfdfb;border-radius:12px;cursor:pointer}.layer input{accent-color:#17684c;width:17px;height:17px;flex-shrink:0;margin:0}.layer-dot{height:12px;width:12px;border-radius:4px;background:#d7473d;flex-shrink:0}.layer-dot.blue{background:#176bd1}.layer-text{font-size:12px;line-height:1.4;font-weight:700}.layer-text small{display:block;color:#7c9186;font-size:11px;font-weight:500;margin-top:2px}.result{padding:16px;background:#f2f7f3;border:1px solid #e0eae2;border-radius:13px;font-size:13px;margin-top:18px}.result h3{margin:0 0 12px;font-size:17px;letter-spacing:-.3px}.pair{border-bottom:1px solid #dce7df;padding:9px 0;overflow-wrap:anywhere}.pair:last-child{border:0}.pair strong{display:block;font-size:11px;color:#718679;margin-bottom:4px}.notice{font-size:11px;color:#84958b;line-height:1.65;margin-top:20px}.toggle{display:none;position:absolute;z-index:5}.maplibregl-popup-content{font:13px system-ui;max-width:260px}#suggestions{max-height:200px;overflow:auto}#suggestions button{display:block;text-align:left;width:100%;margin-top:5px;background:#edf4ef;color:#194d3b;font-weight:500}#suggestions button:hover{background:#dcebe1}a{color:#176b4c}.maplibregl-ctrl-top-right{top:12px;right:12px}.maplibregl-ctrl-group{border-radius:12px!important;overflow:hidden;box-shadow:0 4px 20px #18352a24!important}.maplibregl-ctrl-scale{background:#ffffffcf;border:1px solid #cbd8cd;border-radius:5px;padding:1px 5px}
+@media(max-width:700px){aside{top:10px;left:10px;bottom:auto;max-height:min(72vh,650px);width:calc(100% - 20px);max-width:none;border-radius:17px;padding:0 16px 16px}.panel-header{padding-top:16px}.panel-header h1{font-size:20px}.toggle{display:block;top:auto;bottom:20px;left:12px;box-shadow:0 5px 20px #163f2a33;padding:13px 18px}aside.collapsed{display:none}.maplibregl-ctrl-top-right{top:10px;right:10px}}
+/* Layout polish: explicit component styling to avoid checkbox/label wrapping */
+body{background:#e8eee9}
+aside{left:16px;top:16px;bottom:16px;width:352px;padding:0 20px 18px;border-radius:18px;background:rgba(255,255,255,.97);border:1px solid #dce7de;box-shadow:0 12px 45px rgba(18,48,32,.18)}
+.panel-header{padding:20px 0 14px;margin-bottom:12px;background:#fff}.panel-header h1{font-size:22px;line-height:1.15}.eyebrow{font-size:10px}.stat{margin-bottom:12px;padding:10px 12px;font-size:12px}
+.section-heading h2{margin:18px 0 10px;padding:12px 0 0}
+.layer, label.layer{display:grid!important;grid-template-columns:12px minmax(0,1fr) 19px;align-items:center;column-gap:11px;width:100%;margin:7px 0!important;padding:12px!important;border-radius:12px!important;background:#f6faf7;border:1px solid #dce8df;cursor:pointer}
+.layer:hover{background:#edf6ef}.layer-dot{width:11px;height:11px}.layer-text{min-width:0;font-size:12px;line-height:1.3}.layer-text small{font-size:10px;margin-top:4px}.layer input[type=checkbox]{display:block!important;position:static!important;justify-self:end;align-self:center;appearance:auto;width:18px!important;height:18px!important;margin:0!important;opacity:1!important;accent-color:#17684c}
+.filter-group{margin:20px 0 0;border:1px solid #dce8df;border-radius:12px;background:#fff;overflow:hidden}.filter-group summary{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 13px;cursor:pointer;list-style:none;font-size:13px;font-weight:750;color:#214735}.filter-group summary::-webkit-details-marker{display:none}.filter-group summary:after{content:'⌄';font-size:20px;font-weight:400;line-height:1;color:#698476}.filter-group[open] summary:after{content:'⌃'}.filter-hint{font-size:10px;color:#7b9084;font-weight:500;margin-left:auto}.filter-content{border-top:1px solid #e5eee8;padding:2px 13px 14px}.filter-content label{margin-top:12px}.filter-content select{min-height:38px;padding:8px 10px}.buttons{margin-top:14px}.buttons button{font-size:11px;padding:10px 8px;min-height:40px}
+.result{margin-top:14px;border-left:3px solid #1d7954;background:#f4f8f5}.notice{border-top:1px solid #e4ebe6;padding-top:13px;margin-top:18px;font-size:10px}.maplibregl-ctrl-top-right{top:12px;right:12px}
+@media(max-width:700px){aside{top:10px;left:10px;bottom:auto;width:calc(100% - 20px);max-height:calc(100dvh - 84px);padding:0 16px 15px}.panel-header{padding-top:15px}.filter-hint{font-size:9px}}
+
+/* Teljes, retegenkent elvalasztott adatlap */
+.result{padding:12px;background:#f5f8f5;border:1px solid #dae7dd;scroll-margin-top:145px}
+.details-title{font-size:12px;font-weight:800;color:#2c5845;padding:4px 5px 12px}
+.record{background:white;border:1px solid #e0e9e2;border-radius:12px;padding:13px;margin:0 0 12px;overflow:hidden}
+.record:last-child{margin-bottom:0}
+.record-heading{display:flex;gap:10px;align-items:flex-start;padding-bottom:10px;border-bottom:1px solid #e6eee8;margin-bottom:4px}
+.record-dot{width:11px;height:11px;border-radius:3px;flex-shrink:0;margin-top:5px}
+.record-dot.red{background:#d7473d}.record-dot.blue{background:#176bd1}
+.record-type{font-size:10px;font-weight:750;color:#688074;margin-bottom:4px}
+.record h3{font-size:15px;margin:0;overflow-wrap:anywhere}
+.record .pair{padding:8px 0;font-size:12px;line-height:1.45}
+.record .pair strong{font-size:11px;color:#668174;font-weight:700}
+.record .pair span{white-space:pre-wrap;overflow-wrap:anywhere;color:#17372e}
+
+.panel-header{padding-top:17px;padding-bottom:12px}.panel-header h1{font-size:21px}.eyebrow{margin-bottom:5px}.version{display:none}.notice{font-size:11px}.legend{display:flex;flex-wrap:wrap;gap:9px;margin:10px 0 14px;font-size:11px;color:#385749}.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px}.result{margin-top:12px}.record{margin-bottom:12px}.pair{padding:7px 0}
+</style>
+</head>
+<body>
+<div id="map" role="application" aria-label="Erdőrészletek térképe"></div>
+<button id="mobileToggle" class="toggle">Szűrők és keresés</button>
+<aside id="panel">
+<header class="panel-header"><div class="eyebrow">Interaktív erdőtérkép</div><h1>Érintett erdőrészletek</h1><p class="sub">Fakitermelési tervek és természetvédelmi adatok térképen</p><div class="version">2026 · Interaktív térkép</div></header>
+<div class="stat" id="stats">Adatok betöltése (beágyazott állomány)…</div>
+
+<div class="section-heading"><div class="legend" aria-label="Térképi jelmagyarázat"><span><i style="background:#d7473d"></i>Korábbi</span><span><i style="background:#176bd1"></i>Moratóriumos</span><span><i style="background:#8a42a8"></i>Átfedés</span></div>
+<h2>Keresés</h2></div>
+<label for="search">Erdőrészlet-azonosító (például ABALIGET 12/D)</label>
+<input id="search" placeholder="Település, tag / részlet" autocomplete="off"/>
+<div id="suggestions"></div>
+<div class="section-heading"><h2>Rétegek</h2></div>
+<label class="layer"><span class="layer-dot blue"></span><span class="layer-text">Moratóriumos fakitermelés<small>2 640 poligon · kék</small></span><input type="checkbox" id="showMoratorium" checked></label>
+<label class="layer"><span class="layer-dot"></span><span class="layer-text">Korábbi erdőrészletek<small>15 172 poligon · piros</small></span><input type="checkbox" id="showAffected" checked></label>
+<details class="filter-group"><summary><span>Szűrők</span><span class="filter-hint">4 szűrési lehetőség</span></summary><div class="filter-content">
+<label for="natural">Természetesség</label><select id="natural"><option value="">Összes</option></select>
+<label for="protected">Védettség foka</label><select id="protected"><option value="">Összes</option></select>
+<label for="natura">Natura 2000</label><select id="natura"><option value="">Összes</option></select>
+<label for="harvest">Első fahasználati lehetőség</label><select id="harvest"><option value="">Összes</option></select>
+<div class="buttons"><button id="reset" class="secondary">Szűrők törlése</button><button id="zoom">Találatok megjelenítése</button></div></div></details>
+<div id="details" class="result" style="display:none" aria-live="polite"></div>
+<p class="notice">Az adatok tájékoztató jellegűek. A térképen egy területre kattintva mindkét réteg adatai megtekinthetők.</p>
+</aside>
+<script src="https://unpkg.com/maplibre-gl@5.7.1/dist/maplibre-gl.js"></script>
+<script src="forests_1.js"></script>
+<script src="forests_2.js"></script>
+<script src="moratorium.js"></script>
+<script src="overlap.js"></script>
+<script>
+const pfx='excel_';
+const F={natural:pfx+'Természetesség',protected:pfx+'Védettség foka',natura:pfx+'Natura2000 besorolás',harvest:pfx+'Első fahasználati lehetőség'};
+const map=new maplibregl.Map({container:'map',center:[19.35,47.15],zoom:6.5,style:{version:8,sources:{osm:{type:'raster',tiles:['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],tileSize:256,attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap contributors</a>'}},layers:[{id:'osm',type:'raster',source:'osm'}]},maxZoom:19});
+map.addControl(new maplibregl.NavigationControl(),'top-right');map.addControl(new maplibregl.ScaleControl());
+const el=id=>document.getElementById(id);let features=[],filtered=[],boundsAll=null;
+function norm(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleUpperCase('hu').replace(/[^A-Z0-9]/g,'')}
+function bbox(fs){let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;function visit(a){if(typeof a[0]==='number'){minX=Math.min(minX,a[0]);maxX=Math.max(maxX,a[0]);minY=Math.min(minY,a[1]);maxY=Math.max(maxY,a[1]);}else for(const b of a)visit(b)}for(const f of fs)if(f.geometry?.coordinates)visit(f.geometry.coordinates);return Number.isFinite(minX)?[[minX,minY],[maxX,maxY]]:null}
+function fit(fs){const b=bbox(fs);if(b)map.fitBounds(b,{padding:60,maxZoom:13,duration:800})}
+function val(p,k){const x=p[k];return x===null||x===undefined||x===''?'—':String(x)}
+// Az adatlap valamennyi nem ures forrasmezot megjeleniti.
+function displayValue(v){if(v===null||v===undefined||v==='')return null;if(typeof v==='object')return JSON.stringify(v);return String(v)}
+function makeRecord(p,kind){
+ const section=document.createElement('section');section.className='record';
+ const heading=document.createElement('div');heading.className='record-heading';
+ const dot=document.createElement('span');dot.className='record-dot '+(kind==='moratorium'?'blue':'red');
+ const title=document.createElement('div');const small=document.createElement('div');small.className='record-type';small.textContent=kind==='moratorium'?'Moratóriumos fakitermelés · kék réteg':'Korábbi erdőrészlet · piros réteg';
+ const h=document.createElement('h3');h.textContent=p.keres||p.Kulcs||p.AZOK||'Erdőrészlet';title.append(small,h);heading.append(dot,title);section.append(heading);
+ const hidden=new Set(['fid','mvt_id','id','_id','wkt_geom','geometry','geom']);const entries=Object.entries(p).filter(([key,value])=>displayValue(value)!==null&&!key.startsWith('_')&&!hidden.has(key)&&!/^kod_|^excel_Részletnév$/i.test(key));
+ for(const [key,value] of entries){const row=document.createElement('div');row.className='pair';const label=document.createElement('strong');label.textContent=key.startsWith('excel_')?key.slice(6):key;const val=document.createElement('span');val.textContent=displayValue(value);row.append(label,val);section.append(row)}
+ return section;
+}
+function showRecords(records){const d=el('details');d.style.display='block';d.replaceChildren();
+ const header=document.createElement('div');header.className='details-title';header.textContent=records.length>1?'Az érintett rétegek adatai':'Erdőrészlet adatai';d.append(header);
+ for(const item of records)d.append(makeRecord(item.properties,item.kind));
+ d.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function showDetails(p,kind='affected'){showRecords([{properties:p,kind}])}
+function showMapClick(e){const layers=['moratorium-fill','affected-fill'].filter(id=>map.getLayer(id)&&map.getLayoutProperty(id,'visibility')!=='none');
+ if(!layers.length)return;const hits=map.queryRenderedFeatures(e.point,{layers});if(!hits.length)return;
+ const seen=new Set();const records=[];
+ for(const f of hits){const kind=f.layer.id==='moratorium-fill'?'moratorium':'affected';const p=f.properties||{};const signature=kind+'|'+JSON.stringify(p);if(seen.has(signature))continue;seen.add(signature);records.push({kind,properties:p});}
+ showRecords(records);
+}
+function update(){const sel=Object.fromEntries(Object.keys(F).map(k=>[k,el(k).value]));filtered=features.filter(f=>Object.keys(F).every(k=>!sel[k]||String(f.properties[F[k]]??'')===sel[k]));if(map.getSource('affected')){const terms=Object.keys(F).filter(k=>sel[k]).map(k=>['==',['to-string',['coalesce',['get',F[k]],'']],sel[k]]);const expression=terms.length?['all',...terms]:null;map.setFilter('affected-fill',expression);map.setFilter('affected-outline',expression)}el('stats').textContent=`${filtered.length.toLocaleString('hu-HU')} / ${features.length.toLocaleString('hu-HU')} érintett erdőrészlet`}
+function populate(){for(const [id,key] of Object.entries(F)){const opts=[...new Set(features.map(f=>f.properties[key]).filter(x=>x!==null&&x!==undefined&&x!==''))].sort((a,b)=>String(a).localeCompare(String(b),'hu'));for(const opt of opts){const node=document.createElement('option');node.value=String(opt);node.textContent=String(opt);el(id).append(node)}}}
+function search(){const q=norm(el('search').value),container=el('suggestions');container.replaceChildren();if(q.length<3)return;const hits=features.filter(f=>norm(f.properties.keres).includes(q)).slice(0,12);for(const f of hits){const b=document.createElement('button');b.textContent=f.properties.keres;b.onclick=()=>{el('search').value=f.properties.keres;container.replaceChildren();fit([f]);showDetails(f.properties,'affected')};container.append(b)}if(!hits.length)container.textContent='Nincs találat az érintett erdőrészletek között.'}
+map.on('load',async()=>{try{const datasets=[window.FORESTS_1,window.FORESTS_2];if(datasets.some(d=>!d||!Array.isArray(d.features)))throw new Error('Az erdőadatok JavaScript-fájljai nem töltődtek be.');features=datasets.flatMap(data=>data.features).filter(f=>f.geometry&&f.geometry.type.includes('Polygon'));map.addSource('affected',{type:'geojson',data:{type:'FeatureCollection',features},generateId:false});map.addLayer({id:'affected-fill',type:'fill',source:'affected',paint:{'fill-color':'#d7473d','fill-opacity':0.77}});map.addLayer({id:'affected-outline',type:'line',source:'affected',paint:{'line-color':'#8c211d','line-width':0}});const mor=window.MORATORIUM;if(!mor||!Array.isArray(mor.features))throw new Error('A moratóriumos adatok nem töltődtek be.');map.addSource('moratorium',{type:'geojson',data:mor});map.addLayer({id:'moratorium-fill',type:'fill',source:'moratorium',paint:{'fill-color':'#176bd1','fill-opacity':0.72}});map.addLayer({id:'moratorium-outline',type:'line',source:'moratorium',paint:{'line-color':'#073e83','line-width':0}});const overlap=window.OVERLAP;
+if(overlap&&overlap.features.length){map.addSource('overlap',{type:'geojson',data:overlap});map.addLayer({id:'overlap-fill',type:'fill',source:'overlap',paint:{'fill-color':'#8a42a8','fill-opacity':0.94}})}
+map.on('mouseenter','moratorium-fill',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','moratorium-fill',()=>map.getCanvas().style.cursor='');map.on('mouseenter','affected-fill',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','affected-fill',()=>map.getCanvas().style.cursor='');map.on('click',showMapClick);populate();update();boundsAll=bbox(features);if(boundsAll)map.fitBounds(boundsAll,{padding:40,duration:0});}catch(e){console.error(e);el('stats').textContent='Nem sikerült betölteni az erdőrészleteket: '+e.message}});
+for(const id of Object.keys(F))el(id).addEventListener('change',update);
+for(const [id,layers] of [['showMoratorium',['moratorium-fill','moratorium-outline']],['showAffected',['affected-fill','affected-outline']]])el(id).addEventListener('change',()=>{for(const layer of layers)if(map.getLayer(layer))map.setLayoutProperty(layer,'visibility',el(id).checked?'visible':'none');if(map.getLayer('overlap-fill'))map.setLayoutProperty('overlap-fill','visibility',el('showMoratorium').checked&&el('showAffected').checked?'visible':'none')});el('search').addEventListener('input',search);el('zoom').onclick=()=>fit(filtered);el('reset').onclick=()=>{for(const id of Object.keys(F))el(id).value='';el('search').value='';el('suggestions').replaceChildren();update()};el('mobileToggle').onclick=()=>{el('panel').classList.toggle('collapsed');el('mobileToggle').textContent=el('panel').classList.contains('collapsed')?'Szűrők és keresés':'Térkép megtekintése'};
+</script>
+</body>
+</html>
