@@ -60,7 +60,7 @@ aside{left:16px;top:16px;bottom:16px;width:352px;padding:0 20px 18px;border-radi
 <label for="harvest">Első fahasználati lehetőség</label><select id="harvest"><option value="">Összes</option></select>
 <div class="buttons"><button id="reset" class="secondary">Szűrők törlése</button><button id="zoom">Találatok megjelenítése</button></div></div></details>
 <div id="details" class="result" style="display:none" aria-live="polite"></div>
-<p class="notice">Az adatok tájékoztató jellegűek. A térképen egy területre kattintva mindkét réteg adatai megtekinthetők.</p>
+<p class="notice">Adatlapverzió: 2026-11-12 B · Az adatok tájékoztató jellegűek. A térképen egy területre kattintva mindkét réteg adatai megtekinthetők.</p>
 </aside>
 <script src="https://unpkg.com/maplibre-gl@5.7.1/dist/maplibre-gl.js"></script>
 <script src="forests_1.js"></script>
@@ -85,20 +85,27 @@ function makeRecord(p,kind){
  const dot=document.createElement('span');dot.className='record-dot '+(kind==='moratorium'?'blue':'red');
  const title=document.createElement('div');const small=document.createElement('div');small.className='record-type';small.textContent=kind==='moratorium'?'Moratóriumos fakitermelés · kék réteg':'Korábbi erdőrészlet · piros réteg';
  const h=document.createElement('h3');h.textContent=p.keres||p.Kulcs||p.AZOK||'Erdőrészlet';title.append(small,h);heading.append(dot,title);section.append(heading);
- // Csak a felületen rejtjük el a technikai és duplikált mezőket; a forrásadatok érintetlenek.
- const hidden=new Set(['fid','mvt_id','id','_id','wkt_geom','geometry','geom','fati_grp','keres','reszlet','uzemmod','Kulcs','join_key','area']);
- const hasExcelArea=displayValue(p['excel_Részlet ter'])!==null;
- const hasExcelMode=displayValue(p['excel_Üzemmód'])!==null;
+ // A technikai mezők soha nem kerülnek a felületre; az értékek a forrásban maradnak.
+ const normalizeKey=k=>String(k).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[\s_-]+/g,'');
+ const excluded=new Set(['fid','mvtid','id','wktgeom','geometry','geom','fatigrp','keres','reszlet','uzemmod','kulcs','joinkey','area','excelreszletnev','kodnat','kodrend','kodtul','kodved']);
+ const technicalPrefixes=['kod','mvt','join'];
+ const preferredArea=displayValue(p['excel_Részlet ter']);
+ const preferredMode=displayValue(p['excel_Üzemmód']);
  const entries=Object.entries(p).filter(([key,value])=>{
-   if(displayValue(value)===null||key.startsWith('_')||/^kod_/i.test(key)||key==='excel_Részletnév')return false;
-   if(hidden.has(key)){
-     if(key==='area'&&!hasExcelArea)return true;
-     if(key==='uzemmod'&&!hasExcelMode)return true;
-     return false;
-   }
-   return true;
+   if(displayValue(value)===null)return false;
+   const k=normalizeKey(key);
+   if(k.startsWith('_')||technicalPrefixes.some(prefix=>k.startsWith(prefix)))return false;
+   if(k==='area')return preferredArea===null;
+   if(k==='uzemmod')return preferredMode===null;
+   return !excluded.has(k);
  });
- for(const [key,value] of entries){const row=document.createElement('div');row.className='pair';const label=document.createElement('strong');label.textContent=key.startsWith('excel_')?key.slice(6):key;const val=document.createElement('span');val.textContent=displayValue(value);row.append(label,val);section.append(row)}
+ for(const [key,value] of entries){
+   const row=document.createElement('div');row.className='pair';
+   const label=document.createElement('strong');
+   label.textContent=key==='area'?'Terület (ha)':key==='uzemmod'?'Üzemmód':key.startsWith('excel_')?key.slice(6):key;
+   const valueSpan=document.createElement('span');valueSpan.textContent=displayValue(value);
+   row.append(label,valueSpan);section.append(row);
+ }
  return section;
 }
 function showRecords(records){const d=el('details');d.style.display='block';d.replaceChildren();
