@@ -91,6 +91,8 @@ function makeRecord(p,kind){
  const technicalPrefixes=['kod','mvt','join'];
  const preferredArea=displayValue(p['excel_Részlet ter']);
  const preferredMode=displayValue(p['excel_Üzemmód']);
+const hiddenFields = new Set(['area', 'fati_grp', 'keres', 'reszlet', 'uzemmod','Kulcs', 'join_key', 'fid', 'mvt_id', 'id', '_id','wkt_geom', 'geometry', 'geom']);
+for (const key of hiddenFields) {delete p[key];}
  const entries=Object.entries(p).filter(([key,value])=>{
    if(displayValue(value)===null)return false;
    const k=normalizeKey(key);
