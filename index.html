@@ -34,6 +34,8 @@ aside{left:16px;top:16px;bottom:16px;width:352px;padding:0 20px 18px;border-radi
 .record .pair{padding:8px 0;font-size:12px;line-height:1.45}
 .record .pair strong{font-size:11px;color:#668174;font-weight:700}
 .record .pair span{white-space:pre-wrap;overflow-wrap:anywhere;color:#17372e}
+
+.panel-header{padding-top:17px;padding-bottom:12px}.panel-header h1{font-size:21px}.eyebrow{margin-bottom:5px}.version{display:none}.notice{font-size:11px}.legend{display:flex;flex-wrap:wrap;gap:9px;margin:10px 0 14px;font-size:11px;color:#385749}.legend span{display:inline-flex;align-items:center;gap:5px}.legend i{display:inline-block;width:10px;height:10px;border-radius:3px}.result{margin-top:12px}.record{margin-bottom:12px}.pair{padding:7px 0}
 </style>
 </head>
 <body>
@@ -43,7 +45,8 @@ aside{left:16px;top:16px;bottom:16px;width:352px;padding:0 20px 18px;border-radi
 <header class="panel-header"><div class="eyebrow">Interaktív erdőtérkép</div><h1>Érintett erdőrészletek</h1><p class="sub">Fakitermelési tervek és természetvédelmi adatok térképen</p><div class="version">2026 · Interaktív térkép</div></header>
 <div class="stat" id="stats">Adatok betöltése (beágyazott állomány)…</div>
 
-<div class="section-heading"><h2>Keresés</h2></div>
+<div class="section-heading"><div class="legend" aria-label="Térképi jelmagyarázat"><span><i style="background:#d7473d"></i>Korábbi</span><span><i style="background:#176bd1"></i>Moratóriumos</span><span><i style="background:#8a42a8"></i>Átfedés</span></div>
+<h2>Keresés</h2></div>
 <label for="search">Erdőrészlet-azonosító (például ABALIGET 12/D)</label>
 <input id="search" placeholder="Település, tag / részlet" autocomplete="off"/>
 <div id="suggestions"></div>
@@ -57,12 +60,13 @@ aside{left:16px;top:16px;bottom:16px;width:352px;padding:0 20px 18px;border-radi
 <label for="harvest">Első fahasználati lehetőség</label><select id="harvest"><option value="">Összes</option></select>
 <div class="buttons"><button id="reset" class="secondary">Szűrők törlése</button><button id="zoom">Találatok megjelenítése</button></div></div></details>
 <div id="details" class="result" style="display:none" aria-live="polite"></div>
-<p class="notice">A kék réteg a feltöltött moratóriumos GeoPackage 2640 poligonját mutatja; a piros réteg a korábbi erdőrészleteket. A rétegek átfedhetnek. A poligonok száma nem feltétlenül azonos az egyedi erdőrészletek számával. A többi erdőrészlet nincs feltüntetve. Az adatok nem feltétlenül aktuális hatósági nyilvántartások.</p>
+<p class="notice">Az adatok tájékoztató jellegűek. A térképen egy területre kattintva mindkét réteg adatai megtekinthetők.</p>
 </aside>
 <script src="https://unpkg.com/maplibre-gl@5.7.1/dist/maplibre-gl.js"></script>
 <script src="forests_1.js"></script>
 <script src="forests_2.js"></script>
 <script src="moratorium.js"></script>
+<script src="overlap.js"></script>
 <script>
 const pfx='excel_';
 const F={natural:pfx+'Természetesség',protected:pfx+'Védettség foka',natura:pfx+'Natura2000 besorolás',harvest:pfx+'Első fahasználati lehetőség'};
@@ -81,12 +85,12 @@ function makeRecord(p,kind){
  const dot=document.createElement('span');dot.className='record-dot '+(kind==='moratorium'?'blue':'red');
  const title=document.createElement('div');const small=document.createElement('div');small.className='record-type';small.textContent=kind==='moratorium'?'Moratóriumos fakitermelés · kék réteg':'Korábbi erdőrészlet · piros réteg';
  const h=document.createElement('h3');h.textContent=p.keres||p.Kulcs||p.AZOK||'Erdőrészlet';title.append(small,h);heading.append(dot,title);section.append(heading);
- const entries=Object.entries(p).filter(([key,value])=>displayValue(value)!==null&&!key.startsWith('_'));
+ const hidden=new Set(['fid','mvt_id','id','_id','wkt_geom','geometry','geom']);const entries=Object.entries(p).filter(([key,value])=>displayValue(value)!==null&&!key.startsWith('_')&&!hidden.has(key)&&!/^kod_|^excel_Részletnév$/i.test(key));
  for(const [key,value] of entries){const row=document.createElement('div');row.className='pair';const label=document.createElement('strong');label.textContent=key.startsWith('excel_')?key.slice(6):key;const val=document.createElement('span');val.textContent=displayValue(value);row.append(label,val);section.append(row)}
  return section;
 }
 function showRecords(records){const d=el('details');d.style.display='block';d.replaceChildren();
- const header=document.createElement('div');header.className='details-title';header.textContent=records.length>1?records.length+' poligon adatai a kijelölt helyen':'Kijelölt erdőrészlet adatai';d.append(header);
+ const header=document.createElement('div');header.className='details-title';header.textContent=records.length>1?'Az érintett rétegek adatai':'Erdőrészlet adatai';d.append(header);
  for(const item of records)d.append(makeRecord(item.properties,item.kind));
  d.scrollIntoView({behavior:'smooth',block:'start'});
 }
@@ -100,9 +104,11 @@ function showMapClick(e){const layers=['moratorium-fill','affected-fill'].filter
 function update(){const sel=Object.fromEntries(Object.keys(F).map(k=>[k,el(k).value]));filtered=features.filter(f=>Object.keys(F).every(k=>!sel[k]||String(f.properties[F[k]]??'')===sel[k]));if(map.getSource('affected')){const terms=Object.keys(F).filter(k=>sel[k]).map(k=>['==',['to-string',['coalesce',['get',F[k]],'']],sel[k]]);const expression=terms.length?['all',...terms]:null;map.setFilter('affected-fill',expression);map.setFilter('affected-outline',expression)}el('stats').textContent=`${filtered.length.toLocaleString('hu-HU')} / ${features.length.toLocaleString('hu-HU')} érintett erdőrészlet`}
 function populate(){for(const [id,key] of Object.entries(F)){const opts=[...new Set(features.map(f=>f.properties[key]).filter(x=>x!==null&&x!==undefined&&x!==''))].sort((a,b)=>String(a).localeCompare(String(b),'hu'));for(const opt of opts){const node=document.createElement('option');node.value=String(opt);node.textContent=String(opt);el(id).append(node)}}}
 function search(){const q=norm(el('search').value),container=el('suggestions');container.replaceChildren();if(q.length<3)return;const hits=features.filter(f=>norm(f.properties.keres).includes(q)).slice(0,12);for(const f of hits){const b=document.createElement('button');b.textContent=f.properties.keres;b.onclick=()=>{el('search').value=f.properties.keres;container.replaceChildren();fit([f]);showDetails(f.properties,'affected')};container.append(b)}if(!hits.length)container.textContent='Nincs találat az érintett erdőrészletek között.'}
-map.on('load',async()=>{try{const datasets=[window.FORESTS_1,window.FORESTS_2];if(datasets.some(d=>!d||!Array.isArray(d.features)))throw new Error('Az erdőadatok JavaScript-fájljai nem töltődtek be.');features=datasets.flatMap(data=>data.features).filter(f=>f.geometry&&f.geometry.type.includes('Polygon'));map.addSource('affected',{type:'geojson',data:{type:'FeatureCollection',features},generateId:false});map.addLayer({id:'affected-fill',type:'fill',source:'affected',paint:{'fill-color':'#d7473d','fill-opacity':0.77}});map.addLayer({id:'affected-outline',type:'line',source:'affected',paint:{'line-color':'#8c211d','line-width':0}});const mor=window.MORATORIUM;if(!mor||!Array.isArray(mor.features))throw new Error('A moratóriumos adatok nem töltődtek be.');map.addSource('moratorium',{type:'geojson',data:mor});map.addLayer({id:'moratorium-fill',type:'fill',source:'moratorium',paint:{'fill-color':'#176bd1','fill-opacity':0.72}});map.addLayer({id:'moratorium-outline',type:'line',source:'moratorium',paint:{'line-color':'#073e83','line-width':0}});map.on('mouseenter','moratorium-fill',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','moratorium-fill',()=>map.getCanvas().style.cursor='');map.on('mouseenter','affected-fill',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','affected-fill',()=>map.getCanvas().style.cursor='');map.on('click',showMapClick);populate();update();boundsAll=bbox(features);if(boundsAll)map.fitBounds(boundsAll,{padding:40,duration:0});}catch(e){console.error(e);el('stats').textContent='Nem sikerült betölteni az erdőrészleteket: '+e.message}});
+map.on('load',async()=>{try{const datasets=[window.FORESTS_1,window.FORESTS_2];if(datasets.some(d=>!d||!Array.isArray(d.features)))throw new Error('Az erdőadatok JavaScript-fájljai nem töltődtek be.');features=datasets.flatMap(data=>data.features).filter(f=>f.geometry&&f.geometry.type.includes('Polygon'));map.addSource('affected',{type:'geojson',data:{type:'FeatureCollection',features},generateId:false});map.addLayer({id:'affected-fill',type:'fill',source:'affected',paint:{'fill-color':'#d7473d','fill-opacity':0.77}});map.addLayer({id:'affected-outline',type:'line',source:'affected',paint:{'line-color':'#8c211d','line-width':0}});const mor=window.MORATORIUM;if(!mor||!Array.isArray(mor.features))throw new Error('A moratóriumos adatok nem töltődtek be.');map.addSource('moratorium',{type:'geojson',data:mor});map.addLayer({id:'moratorium-fill',type:'fill',source:'moratorium',paint:{'fill-color':'#176bd1','fill-opacity':0.72}});map.addLayer({id:'moratorium-outline',type:'line',source:'moratorium',paint:{'line-color':'#073e83','line-width':0}});const overlap=window.OVERLAP;
+if(overlap&&overlap.features.length){map.addSource('overlap',{type:'geojson',data:overlap});map.addLayer({id:'overlap-fill',type:'fill',source:'overlap',paint:{'fill-color':'#8a42a8','fill-opacity':0.94}})}
+map.on('mouseenter','moratorium-fill',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','moratorium-fill',()=>map.getCanvas().style.cursor='');map.on('mouseenter','affected-fill',()=>map.getCanvas().style.cursor='pointer');map.on('mouseleave','affected-fill',()=>map.getCanvas().style.cursor='');map.on('click',showMapClick);populate();update();boundsAll=bbox(features);if(boundsAll)map.fitBounds(boundsAll,{padding:40,duration:0});}catch(e){console.error(e);el('stats').textContent='Nem sikerült betölteni az erdőrészleteket: '+e.message}});
 for(const id of Object.keys(F))el(id).addEventListener('change',update);
-for(const [id,layers] of [['showMoratorium',['moratorium-fill','moratorium-outline']],['showAffected',['affected-fill','affected-outline']]])el(id).addEventListener('change',()=>{for(const layer of layers)if(map.getLayer(layer))map.setLayoutProperty(layer,'visibility',el(id).checked?'visible':'none')});el('search').addEventListener('input',search);el('zoom').onclick=()=>fit(filtered);el('reset').onclick=()=>{for(const id of Object.keys(F))el(id).value='';el('search').value='';el('suggestions').replaceChildren();update()};el('mobileToggle').onclick=()=>{el('panel').classList.toggle('collapsed');el('mobileToggle').textContent=el('panel').classList.contains('collapsed')?'Szűrők és keresés':'Térkép megtekintése'};
+for(const [id,layers] of [['showMoratorium',['moratorium-fill','moratorium-outline']],['showAffected',['affected-fill','affected-outline']]])el(id).addEventListener('change',()=>{for(const layer of layers)if(map.getLayer(layer))map.setLayoutProperty(layer,'visibility',el(id).checked?'visible':'none');if(map.getLayer('overlap-fill'))map.setLayoutProperty('overlap-fill','visibility',el('showMoratorium').checked&&el('showAffected').checked?'visible':'none')});el('search').addEventListener('input',search);el('zoom').onclick=()=>fit(filtered);el('reset').onclick=()=>{for(const id of Object.keys(F))el(id).value='';el('search').value='';el('suggestions').replaceChildren();update()};el('mobileToggle').onclick=()=>{el('panel').classList.toggle('collapsed');el('mobileToggle').textContent=el('panel').classList.contains('collapsed')?'Szűrők és keresés':'Térkép megtekintése'};
 </script>
 </body>
 </html>
